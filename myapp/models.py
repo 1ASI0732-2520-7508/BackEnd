@@ -1,12 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group
 
-# Extend Django's AbstractUser for custom fields if needed, or use it directly
-# For this example, we'll assume CompanyID is the only custom field needed on the User for now.
-# If you don't need CompanyID on the User directly, you can remove CustomUser and use Django's User.
+
+
 class CustomUser(AbstractUser):
     company = models.ForeignKey('Company', on_delete=models.SET_NULL, null=True, blank=True)
-    # Add any other user-specific fields if necessary
 
     # To avoid clashes with auth.User groups and user_permissions
     class Meta:
@@ -19,7 +17,7 @@ class CustomUser(AbstractUser):
 
 class Company(models.Model):
     company_name = models.CharField(max_length=255)
-    company_euc = models.CharField(max_length=255, unique=True) # Assuming EUC is unique identifier
+    company_euc = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return self.company_name
@@ -27,7 +25,7 @@ class Company(models.Model):
 class Supplier(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     supplier_name = models.CharField(max_length=255)
-    ruc_n = models.CharField(max_length=255, unique=True) # Assuming RUC_N is unique
+    ruc_n = models.CharField(max_length=255, unique=True) 
     address = models.TextField(blank=True, null=True)
 
     def __str__(self):
@@ -51,6 +49,3 @@ class Category(models.Model):
     def __str__(self):
         return self.category_name
 
-# Note: Django's Group model will be used for 'Role'.
-# You would populate the Group model with 'Admin', 'User', etc.
-# in your database or with fixtures.

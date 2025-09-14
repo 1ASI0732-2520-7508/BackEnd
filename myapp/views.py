@@ -75,7 +75,6 @@ class ItemViewSet(viewsets.ModelViewSet):
     serializer_class = ItemSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-# You might want a dedicated endpoint to get the current authenticated user's details
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

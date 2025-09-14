@@ -3,12 +3,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from .models import Company, Supplier, Item, Category
 
-User = get_user_model()
+
 
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = ('id', 'name')
+
+
+User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     groups = GroupSerializer(many=True, read_only=True)
