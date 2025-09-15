@@ -1,5 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from myapp.views import LogEntryViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
@@ -15,6 +16,7 @@ router.register(r'suppliers', SupplierViewSet)
 router.register(r'categories', CategoryViewSet)
 router.register(r'items', ItemViewSet)
 router.register(r'groups', GroupViewSet) # Endpoint for managing roles/groups
+router.register(r'logs', LogEntryViewSet, basename="logs")
 
 urlpatterns = [
     path('', include(router.urls)),

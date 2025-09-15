@@ -42,7 +42,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'myapp'
+    'myapp',
+    'auditlog'
 ]
 
 MIDDLEWARE = [
