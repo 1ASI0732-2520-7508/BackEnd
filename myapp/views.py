@@ -49,7 +49,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = User.objects.create_user(**serializer.validated_data)
+        user = serializer.save()
         headers = self.get_success_headers(serializer.data)
         return Response(UserSerializer(user).data, status=201, headers=headers)
 
@@ -87,3 +87,15 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAdminUser] # Only admins can manage groups
+
+
+from auditlog.models import LogEntry
+from .auditlog_serializers import LogEntrySerializer
+
+class LogEntryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint that allows viewing audit logs (CRUD history).
+    """
+    queryset = LogEntry.objects.all().order_by("-timestamp")
+    serializer_class = LogEntrySerializer
+    permission_classes = [permissions.IsAdminUser, permissions.IsAuthenticated]  # only admins can view logs

@@ -22,6 +22,13 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'company', 'company_name', 'groups')
         read_only_fields = ('groups', 'company_name') # company can be updated by admin
 
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)  # hash password
+        user.save()
+        return user
+    
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
