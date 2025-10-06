@@ -13,7 +13,7 @@ class ModelTests(TestCase):
     def test_company_str_and_unique_euc(self):
         c1 = Company.objects.create(company_name="Acme SA", company_euc="EU-001")
         self.assertEqual(str(c1), "Acme SA")
-        # unique en company_euc
+
         with self.assertRaises(IntegrityError):
             Company.objects.create(company_name="Otra", company_euc="EU-001")
 

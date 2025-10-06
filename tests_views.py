@@ -240,7 +240,7 @@ class TestLogEntryViewSet(ControllerTestBase):
     def test_logentry_list_admin_only(self):
         view = LogEntryViewSet.as_view({"get": "list"})
 
-        # user normal → 403
+
         req1 = self.factory.get("/audit/logs/")
         force_authenticate(req1, user=self.user)
         resp1 = view(req1)
