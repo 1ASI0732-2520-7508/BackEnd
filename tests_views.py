@@ -220,7 +220,7 @@ class TestGroupViewSet(ControllerTestBase):
     def test_group_list_admin_only(self):
         view = GroupViewSet.as_view({"get": "list"})
 
-        # user normal → 403
+
         req1 = self.factory.get("/groups/")
         force_authenticate(req1, user=self.user)
         resp1 = view(req1)

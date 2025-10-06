@@ -56,7 +56,7 @@ class SerializerTests(TestCase):
 
         self.assertTrue(u.check_password("p4ssw0rd"))
 
-        # Campos de solo lectura expuestos
+
         out = UserSerializer(u).data
         self.assertEqual(out["company_name"], "Acme")
         self.assertIsInstance(out["groups"], list)
