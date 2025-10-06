@@ -226,7 +226,7 @@ class TestGroupViewSet(ControllerTestBase):
         resp1 = view(req1)
         self.assertEqual(resp1.status_code, status.HTTP_403_FORBIDDEN)
 
-        # admin → 200
+
         req2 = self.factory.get("/groups/")
         force_authenticate(req2, user=self.admin)
         resp2 = view(req2)

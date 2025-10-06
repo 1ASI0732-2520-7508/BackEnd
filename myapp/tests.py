@@ -53,7 +53,7 @@ class SerializerTests(TestCase):
         self.assertTrue(s.is_valid(), msg=s.errors)
         u = s.save()
 
-        # Password hasheado
+
         self.assertTrue(u.check_password("p4ssw0rd"))
 
         # Campos de solo lectura expuestos

@@ -45,7 +45,7 @@ class UserViewSet(viewsets.ModelViewSet):
             self.permission_classes = [permissions.IsAdminUser]
         return super().get_permissions()
 
-    # You might want to override create method for user registration with password hashing
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
