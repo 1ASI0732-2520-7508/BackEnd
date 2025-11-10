@@ -13,21 +13,51 @@ class GroupSerializer(serializers.ModelSerializer):
 
 User = get_user_model()
 
+
 class UserSerializer(serializers.ModelSerializer):
-    groups = GroupSerializer(many=True, read_only=True)
+    group = serializers.PrimaryKeyRelatedField(
+        queryset = Group.objects.all(), 
+        required = False,
+        allow_null = False
+    )
     company_name = serializers.CharField(source='company.company_name', read_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'company', 'company_name', 'groups')
-        read_only_fields = ('groups', 'company_name') # company can be updated by admin
+        fields = ('id', 'username', 'email', 'password',
+                   'company', 'company_name', 'group')
+        extra_kwargs ={ 'password': {'write_only': True} }
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)  # hash password
-        user.save()
+        group = validated_data.pop('group', None)
+        password = validated_data.pop('password', None)
+        ##user = User(**validated_data)
+        
+        user = User.objects.create_user(password = password, **validated_data)
+        
+        # if password:
+        #     user.set_password(password)
+        # user.save()
+
+        if group:
+            user.groups.set([group])
         return user
+    
+    def update(self, instance, validated_data):
+        groups_data = validated_data.pop('groups', None)
+        password = validated_data.pop('password', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)
+        instance.save()
+
+        if groups_data is not None:
+            instance.groups.set(groups_data)
+
+        return instance
     
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:

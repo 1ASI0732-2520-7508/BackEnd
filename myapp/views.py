@@ -46,12 +46,13 @@ class UserViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     # You might want to override create method for user registration with password hashing
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        headers = self.get_success_headers(serializer.data)
-        return Response(UserSerializer(user).data, status=201, headers=headers)
+    # def create(self, request, *args, **kwargs):
+    #     serializer = self.get_serializer(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+    #     user = User.objects.create_user(**serializer.validated_data)
+    #     headers = self.get_success_headers(serializer.data)
+    #     return Response(UserSerializer(user).data, status=201, headers=headers)
+
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
