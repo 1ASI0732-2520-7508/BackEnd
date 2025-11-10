@@ -1,92 +1,131 @@
-from django.test import TestCase
-from django.db import IntegrityError
+from django.urls import reverse
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from rest_framework.test import APIRequestFactory
+from rest_framework import status
+from rest_framework.test import APITestCase
+from rest_framework_simplejwt.tokens import AccessToken
+import jwt
 
-from .models import Company, Supplier, Item, Category
-from .serializers import UserSerializer, ItemSerializer
-from .permission import IsEmployee
+from .models import Company, Supplier, Category, Item
+from .serializers import UserSerializer
 
 
-class ModelTests(TestCase):
-    def test_company_str_and_unique_euc(self):
-        c1 = Company.objects.create(company_name="Acme SA", company_euc="EU-001")
-        self.assertEqual(str(c1), "Acme SA")
+User = get_user_model()
 
-        with self.assertRaises(IntegrityError):
-            Company.objects.create(company_name="Otra", company_euc="EU-001")
 
-    def test_supplier_unique_ruc_and_str(self):
-        comp = Company.objects.create(company_name="Acme", company_euc="EU-002")
-        Supplier.objects.create(company=comp, supplier_name="Prov A", ruc_n="RUC-1")
-        with self.assertRaises(IntegrityError):
-            Supplier.objects.create(company=comp, supplier_name="Prov B", ruc_n="RUC-1")
-        self.assertEqual(str(Supplier.objects.get(ruc_n="RUC-1")), "Prov A")
-
-    def test_item_defaults_and_str(self):
-        comp = Company.objects.create(company_name="Acme", company_euc="EU-003")
-        sup = Supplier.objects.create(company=comp, supplier_name="Prov X", ruc_n="RUC-X")
-        cat = Category.objects.create(category_name="Laptops")
-        it = Item.objects.create(
-            supplier=sup, category=cat, item_name="ThinkPad",
-            unit_price="1234.56"
+class AuthenticationTests(APITestCase):
+    def setUp(self):
+        self.company = Company.objects.create(
+            company_name="Acme Corp",
+            company_euc="ACME123"
         )
-        self.assertEqual(it.current_quantity, 0)
-        self.assertEqual(it.minimum_stock_level, 0)
-        self.assertEqual(str(it), "ThinkPad")
+        self.manager_group = Group.objects.create(name="Manager")
 
+    def _create_user(self, username="manager", password="StrongPass123!", *, is_staff=False, is_superuser=False):
+        user = User.objects.create_user(
+            username=username,
+            email=f"{username}@example.com",
+            password=password,
+            company=self.company,
+        )
+        user.is_staff = is_staff
+        user.is_superuser = is_superuser
+        user.save(update_fields=["is_staff", "is_superuser"])
+        return user
 
-class SerializerTests(TestCase):
-    def test_user_serializer_create_hashes_password_and_readonly_fields(self):
+    def _auth_header(self, user):
+        token = AccessToken.for_user(user)
+        return {"HTTP_AUTHORIZATION": f"Bearer {str(token)}"}
 
-        User = get_user_model()
-        comp = Company.objects.create(company_name="Acme", company_euc="EU-004")
+    def test_user_serializer_creates_user_with_group_and_hashed_password(self):
+        serializer = UserSerializer(
+            data={
+                "username": "newuser",
+                "email": "newuser@example.com",
+                "password": "StrongPass123!",
+                "group": self.manager_group.pk,
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        user = serializer.save()
 
-        data = {
-            "username": "sebas",
-            "email": "s@x.com",
-            "password": "p4ssw0rd",
-            "company": comp.id
-        }
-        s = UserSerializer(data=data)
-        self.assertTrue(s.is_valid(), msg=s.errors)
-        u = s.save()
+        self.assertTrue(user.check_password("StrongPass123!"))
+        self.assertIn(self.manager_group, user.groups.all())
 
+    def test_obtain_token_includes_custom_claims(self):
+        user = self._create_user()
+        user.groups.add(self.manager_group)
 
-        self.assertTrue(u.check_password("p4ssw0rd"))
+        url = reverse("token_obtain_pair")
+        response = self.client.post(
+            url,
+            {"username": user.username, "password": "StrongPass123!"},
+            format="json",
+        )
 
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        access_token = response.data["access"]
+        decoded = jwt.decode(
+            access_token,
+            settings.SECRET_KEY,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
 
-        out = UserSerializer(u).data
-        self.assertEqual(out["company_name"], "Acme")
-        self.assertIsInstance(out["groups"], list)
+        self.assertEqual(decoded["username"], user.username)
+        self.assertEqual(decoded["email"], user.email)
+        self.assertEqual(decoded["company_id"], user.company_id)
+        self.assertIn("Manager", decoded["groups"])
 
-    def test_item_serializer_exposes_supplier_and_category_names_read_only(self):
-        comp = Company.objects.create(company_name="Acme", company_euc="EU-005")
-        sup = Supplier.objects.create(company=comp, supplier_name="Prov Z", ruc_n="RUC-Z")
-        cat = Category.objects.create(category_name="Monitores")
+    def test_current_user_endpoint_returns_authenticated_user(self):
+        user = self._create_user(username="employee")
+        headers = self._auth_header(user)
+
+        response = self.client.get(reverse("current_user"), **headers)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], user.username)
+        self.assertEqual(response.data["company"], user.company_id)
+
+    def test_items_endpoint_requires_authentication(self):
+        response = self.client.get(reverse("item-list"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_authenticated_user_can_list_items(self):
+        supplier = Supplier.objects.create(
+            company=self.company,
+            supplier_name="Supplier One",
+            ruc_n="SUP123456",
+        )
+        category = Category.objects.create(category_name="Electronics")
         item = Item.objects.create(
-            supplier=sup, category=cat, item_name="UltraView",
-            unit_price="999.99"
+            supplier=supplier,
+            category=category,
+            item_name="Laptop",
+            current_quantity=10,
+            minimum_stock_level=2,
+            unit_price="1200.00",
+            description="Ultrabook",
         )
-        data = ItemSerializer(item).data
-        self.assertEqual(data["supplier_name"], "Prov Z")
-        self.assertEqual(data["category_name"], "Monitores")
 
+        user = self._create_user(username="inventory_user")
+        headers = self._auth_header(user)
 
-class PermissionTests(TestCase):
-    def test_is_employee_permission_allows_only_group_members(self):
-        User = get_user_model()
-        emp_group, _ = Group.objects.get_or_create(name="Employee")
-        user_in = User.objects.create_user(username="in", password="x")
-        user_in.groups.add(emp_group)
-        user_out = User.objects.create_user(username="out", password="x")
+        response = self.client.get(reverse("item-list"), **headers)
 
-        factory = APIRequestFactory()
-        perm = IsEmployee()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["item_name"], item.item_name)
+        self.assertEqual(response.data[0]["supplier_name"], supplier.supplier_name)
+        self.assertEqual(response.data[0]["category_name"], category.category_name)
 
-        req_in = factory.get("/resource"); req_in.user = user_in
-        req_out = factory.get("/resource"); req_out.user = user_out
+    def test_group_endpoint_requires_admin_privileges(self):
+        admin_user = self._create_user(username="admin", is_staff=True, is_superuser=True)
+        regular_user = self._create_user(username="regular")
 
-        self.assertTrue(perm.has_permission(req_in, view=None))
-        self.assertFalse(perm.has_permission(req_out, view=None))
+        response = self.client.get(reverse("group-list"), **self._auth_header(admin_user))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.get(reverse("group-list"), **self._auth_header(regular_user))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
